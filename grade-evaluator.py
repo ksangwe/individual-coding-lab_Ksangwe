@@ -1,130 +1,104 @@
 import csv
 
-def read_grades(file_name):
+def load_grades(filename):
+    """Load grades from CSV file"""
     try:
-        with open(file_name, 'r') as file:
+        with open(filename, 'r') as file:
             reader = csv.DictReader(file)
-            data = list(reader)
-            return data
+            return list(reader)
     except FileNotFoundError:
-        print("Error: grades.csv file not found.")
-        return []
+        print("Error: File not found")
+        return None
+
 def validate_grades(data):
-    for row in data:
-        score = float(row['Score'])
-        if score < 0 or score > 100:
-            print(f"Invalid score found: {score}")
-            return False
-    return True
-def validate_weights(data):
-    total = 0
-    formative = 0
-    summative = 0
-
-    for row in data:
-        weight = float(row['Weight'])
-        total += weight
-
-        if row['Category'] == 'Formative':
-            formative += weight
-        elif row['Category'] == 'Summative':
-            summative += weight
-
-    if total != 100:
-        print("Error: Total weight is not 100")
+    """Validate category weights"""
+    if not data:
         return False
 
-    if formative != 60:
-        print("Error: Formative weight must be 60")
-        return False
-
-    if summative != 40:
-        print("Error: Summative weight must be 40")
-        return False
-
-    return True
-
-def calculate_gpa(data):
-    total_score = 0
-
-    for row in data:
-        score = float(row['Score'])
-        weight = float(row['Weight'])
-        total_score += (score * weight) / 100
-
-    gpa = (total_score / 100) * 5.0
-    return total_score, gpa
-
-def check_pass_fail(data):
-    formative_total = 0
     formative_weight = 0
-
-    summative_total = 0
     summative_weight = 0
 
     for row in data:
-        score = float(row['Score'])
-        weight = float(row['Weight'])
+        try:
+            score = float(row['Score'])
+            weight = float(row['Weight'])
+            category = row['Category']
 
-        if row['Category'] == 'Formative':
-            formative_total += score * weight
-            formative_weight += weight
-        else:
-            summative_total += score * weight
-            summative_weight += weight
+            if category == "Formative":
+                formative_weight += weight
+            elif category == "Summative":
+                summative_weight += weight
+            else:
+                print(f"Error: Unknown category {category}")
+                return False
 
-    formative_avg = formative_total / formative_weight
-    summative_avg = summative_total / summative_weight
+        except KeyError:
+            print("Error: Missing required column in CSV")
+            return False
+        except ValueError:
+            print("Error: Invalid numeric value")
+            return False
 
-    if formative_avg >= 50 and summative_avg >= 50:
-        return "PASSED"
-    else:
-        return "FAILED"
+    # ✅ CHANGED RULE (Option 2 fix)
+    if formative_weight != 40:
+        print("Error: Formative weight must be 40")
+        return False
 
-def resubmission(data):
-    failed = []
+    if summative_weight != 60:
+        print("Error: Summative weight must be 60")
+        return False
+
+    return True
+
+
+def calculate_grade(data):
+    """Calculate final grade"""
+    total = 0
 
     for row in data:
-        if row['Category'] == 'Formative' and float(row['Score']) < 50:
-            failed.append(row)
+        score = float(row['Score'])
+        weight = float(row['Weight'])
+        total += score * (weight / 100)
 
-    if not failed:
-        return []
+    return total
 
-    max_weight = max(float(row['Weight']) for row in failed)
 
-    result = [
-        row['Assignment']
-        for row in failed
-        if float(row['Weight']) == max_weight
-    ]
+def calculate_gpa(grade):
+    """Convert grade to GPA"""
+    if grade >= 70:
+        return 4.0
+    elif grade >= 60:
+        return 3.0
+    elif grade >= 50:
+        return 2.0
+    elif grade >= 40:
+        return 1.0
+    else:
+        return 0.0
 
-    return result
 
 def main():
-    data = read_grades("grades.csv")
+    filename = "grades.csv"
+    data = load_grades(filename)
 
-    if not data:
+    if data is None:
         return
 
     if not validate_grades(data):
         return
 
-    if not validate_weights(data):
-        return
+    final_grade = calculate_grade(data)
+    gpa = calculate_gpa(final_grade)
 
-    total, gpa = calculate_gpa(data)
-    status = check_pass_fail(data)
-    resubmit = resubmission(data)
+    print("\n===== GRADE REPORT =====")
+    print(f"Total Grade: {final_grade:.2f}")
+    print(f"GPA: {gpa:.1f}")
 
-    print("===== GRADE REPORT =====")
-    print(f"Total Grade: {total}")
-    print(f"GPA: {gpa}")
-    print(f"Status: {status}")
+    if final_grade >= 50:
+        print("Status: PASSED")
+    else:
+        print("Status: FAILED")
 
-    if resubmit:
-        print("Resubmission Required For:")
-        for item in resubmit:
-            print("-", item)
 
-main()
+if __name__ == "__main__":
+    main()
